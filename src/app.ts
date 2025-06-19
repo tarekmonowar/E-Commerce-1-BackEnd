@@ -1,0 +1,48 @@
+import express from "express";
+const app = express();
+import connectDB from "./utils/db.js";
+import NodeCache from "node-cache";
+import morgan from "morgan";
+import cors from "cors";
+
+// Connect to MongoDB
+connectDB();
+export const myNodeCache = new NodeCache();
+
+// Route Imports
+import { errorMiddleware } from "./middlewares/Error.js";
+import userRoute from "./routes/userRouter.js";
+import productRoute from "./routes/productRouter.js";
+import orderRoute from "./routes/orderRouter.js";
+import paymentRoute from "./routes/paymentsRouter.js";
+import statsRoute from "./routes/statisticsRouter.js";
+
+// Middleware for parsing JSON and URL-encoded data  body-parser lage na
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(morgan("dev"));
+app.use(cors());
+
+// app.use(cookieParser());
+
+// Setting up routes
+app.use("/api/v1/user", userRoute);
+app.use("/api/v1/product", productRoute);
+app.use("/api/v1/order", orderRoute);
+app.use("/api/v1/payment", paymentRoute);
+app.use("/api/v1/dashboard", statsRoute);
+
+// Middleware for error handling and static file
+app.use("/uploads", express.static("uploads"));
+app.use(errorMiddleware);
+
+// Home route
+app.get("/", (req, res) => {
+  res.send("API Working with /api/v1");
+});
+
+// Catch-all route for undefined routes
+app.use((req, res) => {
+  res.status(400).send("Bad Request tarek");
+});
+export default app;
