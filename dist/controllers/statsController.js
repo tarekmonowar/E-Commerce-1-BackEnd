@@ -277,7 +277,7 @@ export const getBarCharts = TryCatch(async (req, res, next) => {
                 $lte: today,
             },
         }).select("createdAt");
-        const lasttwelveMonthOrderPromise = User.find({
+        const lasttwelveMonthOrderPromise = Order.find({
             createdAt: {
                 $gte: twelveMonthAgo,
                 $lte: today,
@@ -291,7 +291,11 @@ export const getBarCharts = TryCatch(async (req, res, next) => {
         //* ata alada components leka upore /stats a ase details aikhan theke bujo tm-------
         const productCounts = getChartData({ length: 6, today, docArr: products });
         const usersCounts = getChartData({ length: 6, today, docArr: users });
-        const ordersCounts = getChartData({ length: 12, today, docArr: orders });
+        const ordersCounts = getChartData({
+            length: 12,
+            today,
+            docArr: orders,
+        });
         charts = {
             users: usersCounts,
             products: productCounts,
