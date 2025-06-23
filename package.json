@@ -4,7 +4,7 @@
   "main": "server.ts",
   "type": "module",
   "scripts": {
-    "start": "node dist/server.js ",
+    "start": "node dist/server.js",
     "dev": "nodemon dist/server.js ",
     "build": "tsc",
     "watch": "tsc -w"
@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

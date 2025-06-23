@@ -10,12 +10,12 @@ import {
   updateProduct,
   getAllProducts,
 } from "../controllers/productController.js";
-import { singleUpload } from "../middlewares/Multer.js";
+import { singleUpload, mutliUpload } from "../middlewares/Multer.js";
 
 const router = express.Router();
 
 // Create new product - /api/v1/product/new
-router.post("/new", adminOnly, singleUpload, newProduct);
+router.post("/new", adminOnly, mutliUpload, newProduct);
 
 // Get all product with filter - /api/v1/product/all
 router.get("/all", getAllProducts);
@@ -33,7 +33,7 @@ router.get("/admin-products", adminOnly, getAdminProducts);
 router.get("/:id", getSingleProduct);
 
 // Update product single - /api/v1/product/:id
-router.put("/:id", adminOnly, singleUpload, updateProduct);
+router.put("/:id", adminOnly, mutliUpload, updateProduct);
 
 // Delete Product - /api/v1/product/:id
 router.delete("/:id", adminOnly, deleteProduct);

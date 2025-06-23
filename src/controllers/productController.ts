@@ -10,6 +10,7 @@ import {
 import { rm } from "fs";
 import { myNodeCache } from "../app.js";
 import { invalidateCache } from "../utils/cache-revalidate.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "../utils/features.js";
 // import { fa, faker } from "@faker-js/faker";
 
 // Get latest product - /api/v1/product/latest
@@ -105,17 +106,31 @@ export const newProduct = TryCatch(
     res: Response,
     next: NextFunction,
   ) => {
+    // console.log("FILES:", req.files);
+    // console.log("BODY:", req.body);
     const { name, price, stock, category } = req.body;
-    const photo = req.file;
 
-    if (!photo) {
+    //after succesful pass multer middleware it will automatically add files to req.files
+    const photos = req.files as Express.Multer.File[] | undefined;
+
+    if (!photos) {
       return next(new ErrorHandler("Please provide a photo", 400));
     }
 
+    if (photos.length < 1) {
+      return next(new ErrorHandler("Please provide at least one photo", 400));
+    }
+
+    if (photos.length > 5) {
+      return next(
+        new ErrorHandler("You can upload a maximum of 5 photos", 400),
+      );
+    }
+
     if (!name || !price || !stock || !category) {
-      rm(photo.path, () => {
-        console.log("Photo deleted"); // Delete the photo if any field is missing because its comes from multer automatically
-      });
+      // rm(photo.path, () => {
+      //   console.log("Photo deleted"); // Delete the photo if any field is missing because its comes from multer automatically but in cloudinary its dont need to delete
+      // });
       return next(new ErrorHandler("Please provide all fields", 400));
     }
 
@@ -123,16 +138,15 @@ export const newProduct = TryCatch(
       return next(new ErrorHandler("Price or stock cannot be negative", 400));
     }
 
-    if (!photo) {
-      return next(new ErrorHandler("Please provide a photo", 400));
-    }
+    //uploading photos to cloudinary
+    const photosurl = await uploadToCloudinary(photos);
 
     await Product.create({
       name,
       price,
       stock,
       category: category.toLowerCase(),
-      photo: photo.path,
+      photos: photosurl,
     });
 
     await invalidateCache({ product: true, admin: true });
@@ -153,7 +167,7 @@ export const updateProduct = TryCatch(
   ) => {
     const { id } = req.params;
     const { name, price, stock, category } = req.body;
-    const photo = req.file;
+    const photos = req.files as Express.Multer.File[] | undefined;
 
     const product = await Product.findById(id);
 
@@ -161,11 +175,17 @@ export const updateProduct = TryCatch(
       return next(new ErrorHandler("Product not found", 404));
     }
 
-    if (photo) {
-      rm(product.photo, () => {
-        console.log("old Photo deleted"); // Delete the photo if any field is missing because its comes from multer automatically
-      });
-      product.photo = photo.path;
+    if (photos && photos.length > 0) {
+      // rm(product.photo, () => {
+      //   console.log("old Photo deleted"); // Delete the photo if any field is missing because its comes from multer automatically
+      // });
+      // product.photo = photo.path;
+
+      const photosUrl = await uploadToCloudinary(photos);
+      const ids = product.photos.map((photo) => photo.public_id);
+      await deleteFromCloudinary(ids);
+      product.photos.splice(0, product.photos.length, ...photosUrl);
+      // product.photos = photosUrl; // Update the photos array with new photos kaj kortese na
     }
 
     if (name) {
@@ -203,9 +223,12 @@ export const deleteProduct = TryCatch(
       return next(new ErrorHandler("Product not found", 404));
     }
 
-    rm(product.photo, () => {
-      console.log("Product Photo deleted");
-    });
+    const ids = product.photos.map((photo) => photo.public_id);
+    await deleteFromCloudinary(ids);
+
+    // rm(product.photo, () => {
+    //   console.log("Product Photo deleted");
+    // });
 
     await product.deleteOne();
     await invalidateCache({

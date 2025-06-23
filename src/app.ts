@@ -4,10 +4,16 @@ import connectDB from "./utils/db.js";
 import NodeCache from "node-cache";
 import morgan from "morgan";
 import cors from "cors";
+import { v2 as cloudinary } from "cloudinary";
 
 // Connect to MongoDB
 connectDB();
 export const myNodeCache = new NodeCache();
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Route Imports
 import { errorMiddleware } from "./middlewares/Error.js";
