@@ -6,6 +6,7 @@ import {
   applyDiscount,
   deleteCoupon,
   newCoupon,
+  singleCoupon,
 } from "../controllers/paymentsController.js";
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get("/discount", applyDiscount);
 router.post("/coupon/new", adminOnly, newCoupon);
 
 // route - /api/v1/payment/coupon/:id
-router.get("/coupon/:id", adminOnly, allCoupon);
+router.get("/coupon/:id", adminOnly, singleCoupon);
 
 // route - /api/v1/payment/coupon/all
 router.get("/coupon/all", adminOnly, allCoupon);
