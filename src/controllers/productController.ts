@@ -108,7 +108,7 @@ export const newProduct = TryCatch(
   ) => {
     // console.log("FILES:", req.files);
     // console.log("BODY:", req.body);
-    const { name, price, stock, category } = req.body;
+    const { name, price, stock, category, description } = req.body;
 
     //after succesful pass multer middleware it will automatically add files to req.files
     const photos = req.files as Express.Multer.File[] | undefined;
@@ -127,7 +127,7 @@ export const newProduct = TryCatch(
       );
     }
 
-    if (!name || !price || !stock || !category) {
+    if (!name || !price || !stock || !category || !description) {
       // rm(photo.path, () => {
       //   console.log("Photo deleted"); // Delete the photo if any field is missing because its comes from multer automatically but in cloudinary its dont need to delete
       // });
@@ -145,6 +145,7 @@ export const newProduct = TryCatch(
       name,
       price,
       stock,
+      description,
       category: category.toLowerCase(),
       photos: photosurl,
     });
@@ -166,7 +167,7 @@ export const updateProduct = TryCatch(
     next,
   ) => {
     const { id } = req.params;
-    const { name, price, stock, category } = req.body;
+    const { name, price, stock, category, description } = req.body;
     const photos = req.files as Express.Multer.File[] | undefined;
 
     const product = await Product.findById(id);
@@ -199,6 +200,10 @@ export const updateProduct = TryCatch(
     }
     if (category) {
       product.category = category.toLowerCase();
+    }
+
+    if (description) {
+      product.description = description;
     }
     await product.save();
     await invalidateCache({

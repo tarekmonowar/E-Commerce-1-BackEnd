@@ -29,6 +29,14 @@ const ProductSchema = new mongoose.Schema({
         required: [true, "Please enter product category"],
         trim: true,
     },
+    description: {
+        type: String,
+        required: [true, "Please enter product Description"],
+    },
+    ratings: {
+        type: Number,
+        default: 0,
+    },
 }, {
     timestamps: true,
 });

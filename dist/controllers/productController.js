@@ -81,7 +81,7 @@ export const getSingleProduct = TryCatch(async (req, res, next) => {
 export const newProduct = TryCatch(async (req, res, next) => {
     // console.log("FILES:", req.files);
     // console.log("BODY:", req.body);
-    const { name, price, stock, category } = req.body;
+    const { name, price, stock, category, description } = req.body;
     //after succesful pass multer middleware it will automatically add files to req.files
     const photos = req.files;
     if (!photos) {
@@ -93,7 +93,7 @@ export const newProduct = TryCatch(async (req, res, next) => {
     if (photos.length > 5) {
         return next(new ErrorHandler("You can upload a maximum of 5 photos", 400));
     }
-    if (!name || !price || !stock || !category) {
+    if (!name || !price || !stock || !category || !description) {
         // rm(photo.path, () => {
         //   console.log("Photo deleted"); // Delete the photo if any field is missing because its comes from multer automatically but in cloudinary its dont need to delete
         // });
@@ -108,6 +108,7 @@ export const newProduct = TryCatch(async (req, res, next) => {
         name,
         price,
         stock,
+        description,
         category: category.toLowerCase(),
         photos: photosurl,
     });
@@ -120,7 +121,7 @@ export const newProduct = TryCatch(async (req, res, next) => {
 // update-single-product  - /api/v1/product/:id
 export const updateProduct = TryCatch(async (req, res, next) => {
     const { id } = req.params;
-    const { name, price, stock, category } = req.body;
+    const { name, price, stock, category, description } = req.body;
     const photos = req.files;
     const product = await Product.findById(id);
     if (!product) {
@@ -148,6 +149,9 @@ export const updateProduct = TryCatch(async (req, res, next) => {
     }
     if (category) {
         product.category = category.toLowerCase();
+    }
+    if (description) {
+        product.description = description;
     }
     await product.save();
     await invalidateCache({
