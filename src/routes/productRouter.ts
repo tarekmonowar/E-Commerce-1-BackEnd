@@ -9,6 +9,9 @@ import {
   getSingleProduct,
   updateProduct,
   getAllProducts,
+  newReview,
+  deleteReview,
+  allReviewsOfProduct,
 } from "../controllers/productController.js";
 import { singleUpload, mutliUpload } from "../middlewares/Multer.js";
 
@@ -37,5 +40,11 @@ router.put("/:id", adminOnly, mutliUpload, updateProduct);
 
 // Delete Product - /api/v1/product/:id
 router.delete("/:id", adminOnly, deleteProduct);
+
+//* for rating and reviews route
+
+router.get("/reviews/:id", allReviewsOfProduct);
+router.post("/review/new/:id", newReview);
+router.delete("/review/:id", deleteReview);
 
 export default router;

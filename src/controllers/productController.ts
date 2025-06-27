@@ -1,16 +1,21 @@
 import { NextFunction, Request, Response } from "express";
-import { Product } from "../models/product.model.js";
-import ErrorHandler from "../utils/ErrorHandler.js";
+import { redis, redisTTL } from "../app.js";
 import { TryCatch } from "../middlewares/Error.js";
+import { Product } from "../models/product.model.js";
+import { Reviews } from "../models/review.model.js";
+import { User } from "../models/user.model.js";
 import {
   BaseQuery,
   NewProductRequestBody,
   SearchRequestQuery,
 } from "../types/types.js";
-import { rm } from "fs";
-import { myNodeCache } from "../app.js";
 import { invalidateCache } from "../utils/cache-revalidate.js";
-import { deleteFromCloudinary, uploadToCloudinary } from "../utils/features.js";
+import ErrorHandler from "../utils/ErrorHandler.js";
+import {
+  deleteFromCloudinary,
+  findAvarageRatings,
+  uploadToCloudinary,
+} from "../utils/features.js";
 // import { fa, faker } from "@faker-js/faker";
 
 // Get latest product - /api/v1/product/latest
@@ -18,12 +23,12 @@ import { deleteFromCloudinary, uploadToCloudinary } from "../utils/features.js";
 export const getLatestProducts = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     let products;
-
-    if (myNodeCache.has("latest-products")) {
-      products = JSON.parse(myNodeCache.get("latest-products") as string);
+    const cached = await redis.get("latest-products");
+    if (cached) {
+      products = JSON.parse(cached);
     } else {
-      products = await Product.find({}).sort({ createdAt: -1 }).limit(5);
-      myNodeCache.set("latest-products", JSON.stringify(products));
+      products = await Product.find({}).sort({ createdAt: -1 }).limit(5).lean();
+      await redis.set("latest-products", JSON.stringify(products));
     }
 
     res.status(200).json({
@@ -38,15 +43,16 @@ export const getLatestProducts = TryCatch(
 export const getAllCategory = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     let categories;
+    const cached = await redis.get("categories");
 
-    if (myNodeCache.has("categories")) {
-      categories = JSON.parse(myNodeCache.get("categories") as string);
+    if (cached) {
+      categories = JSON.parse(cached);
     } else {
       categories = await Product.find({}).distinct("category");
       if (!categories) {
         return next(new ErrorHandler("No category found", 404));
       }
-      myNodeCache.set("categories", JSON.stringify(categories));
+      await redis.set("categories", JSON.stringify(categories));
     }
 
     res.status(200).json({
@@ -61,12 +67,13 @@ export const getAllCategory = TryCatch(
 export const getAdminProducts = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     let products;
+    const cached = await redis.get("all-products");
 
-    if (myNodeCache.has("all-products")) {
-      products = JSON.parse(myNodeCache.get("all-products") as string);
+    if (cached) {
+      products = JSON.parse(cached);
     } else {
       products = await Product.find({});
-      myNodeCache.set("all-products", JSON.stringify(products));
+      await redis.set("all-products", JSON.stringify(products));
     }
     res.status(200).json({
       success: true,
@@ -80,15 +87,18 @@ export const getAdminProducts = TryCatch(
 export const getSingleProduct = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     const id = req.params.id;
+    const key = `product-${id}`;
     let product;
-    if (myNodeCache.has(`product-${id}`)) {
-      product = JSON.parse(myNodeCache.get(`product-${id}`) as string);
+    const cached = await redis.get(key);
+
+    if (cached) {
+      product = JSON.parse(cached);
     } else {
       product = await Product.findById(id);
       if (!product) {
         return next(new ErrorHandler("Product not found", 404));
       }
-      myNodeCache.set(`product-${id}`, JSON.stringify(product));
+      await redis.set(key, JSON.stringify(product));
     }
 
     res.status(200).json({
@@ -261,34 +271,62 @@ export const getAllProducts = TryCatch(
     const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
     const skip = (pageNumber - 1) * limit;
 
-    const basequery: BaseQuery = {};
+    const key = `products-${search}-${sort}-${category}-${price}-${page}`;
 
-    if (search) {
-      basequery.name = {
-        $regex: search,
-        $options: "i",
-      };
+    //*or better to encode
+    //  const encode = (val?: string | number) => encodeURIComponent(val ?? "all");
+    // const key = `products-${encode(search)}-${encode(sort)}-${encode(category)}-${encode(price)}-${pageNumber}`;
+
+    let products;
+    let totalPage;
+
+    const cached = await redis.get(key);
+
+    if (cached) {
+      const data = JSON.parse(cached);
+      totalPage = data.totalPage;
+      products = data.products;
+    } else {
+      const basequery: BaseQuery = {};
+
+      if (search) {
+        basequery.name = {
+          $regex: search,
+          $options: "i",
+        };
+      }
+
+      if (price) {
+        basequery.price = { $lte: Number(price) };
+      }
+
+      if (category) {
+        basequery.category = category;
+      }
+
+      const productPromise = Product.find(basequery)
+        .limit(limit)
+        .skip(skip)
+        .sort(sort && { price: sort === "asc" ? 1 : -1 });
+
+      const [productsResult, filteredOnlyProduct] = await Promise.all([
+        productPromise,
+        Product.find(basequery),
+      ]);
+      products = productsResult;
+      totalPage = Math.ceil(filteredOnlyProduct.length / limit);
+
+      //* use this for better
+      // const [productsResult, totalCount] = await Promise.all([
+      //   productPromise,
+      //   Product.countDocuments(basequery),
+      // ]);
+
+      // products = productsResult;
+      // totalPage = Math.ceil(totalCount / limit);
+
+      await redis.setex(key, redisTTL, JSON.stringify({ products, totalPage }));
     }
-
-    if (price) {
-      basequery.price = { $lte: Number(price) };
-    }
-
-    if (category) {
-      basequery.category = category;
-    }
-
-    const productPromise = Product.find(basequery)
-      .limit(limit)
-      .skip(skip)
-      .sort(sort && { price: sort === "asc" ? 1 : -1 });
-
-    const [products, filteredOnlyProduct] = await Promise.all([
-      productPromise,
-      Product.find(basequery),
-    ]);
-
-    const totalPage = Math.ceil(filteredOnlyProduct.length / limit);
 
     res.status(200).json({
       success: true,
@@ -333,3 +371,138 @@ export const getAllProducts = TryCatch(
 // };
 
 // deleteRandomProducts(35);
+
+//! --------------------------------------for review and rating route-------------------------------------------------------
+
+// New reviews create - /api/v1/review/new/:id
+export const newReview = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = await User.findById(req.query.id);
+    if (!user) {
+      return next(new ErrorHandler("Not logged In", 404));
+    }
+
+    const { id } = req.params;
+    const product = await Product.findById(id);
+    if (!product) {
+      return next(new ErrorHandler("Product not found", 404));
+    }
+
+    const { comment, rating } = req.body;
+    const alreadyReviewd = await Reviews.findOne({
+      user: user._id,
+      product: product._id,
+    });
+    if (alreadyReviewd) {
+      alreadyReviewd.comment = comment;
+      alreadyReviewd.rating = rating;
+      await alreadyReviewd.save();
+    } else {
+      await Reviews.create({
+        comment,
+        rating,
+        user: user._id,
+        product: product._id,
+      });
+    }
+
+    const { ratings, numOfReviews } = await findAvarageRatings(product._id);
+
+    product.ratings = ratings;
+    product.numOfReviews = numOfReviews;
+
+    await product.save();
+
+    await invalidateCache({
+      product: true,
+      productId: String(product._id),
+      admin: true,
+      review: true,
+    });
+
+    res.status(alreadyReviewd ? 200 : 201).json({
+      success: true,
+      message: alreadyReviewd ? "Review Update" : "Review Added",
+    });
+  },
+);
+// all reviews of product - /api/v1/review/new/:id
+export const allReviewsOfProduct = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    let reviews;
+
+    const cached = await redis.get(`reviews-${id}`);
+
+    if (cached) {
+      reviews = JSON.parse(cached);
+    } else {
+      // // Validate MongoDB ObjectId
+      // if (!mongoose.Types.ObjectId.isValid(id)) {
+      //   return next(new ErrorHandler("Invalid ID", 400));
+      // }
+
+      reviews = await Reviews.find({ product: id })
+        .populate("user", "name photo")
+        .sort({ updatedAt: -1 });
+
+      await redis.setex(`reviews-${id}`, redisTTL, JSON.stringify(reviews));
+    }
+
+    res.status(200).json({
+      success: true,
+      reviews,
+    });
+  },
+);
+
+// delete review - /api/v1/review/:id
+
+export const deleteReview = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = await User.findById(req.query.id);
+    if (!user) {
+      return next(new ErrorHandler("Not logged In", 404));
+    }
+
+    const { id } = req.params;
+    const review = await Reviews.findById(id);
+
+    if (!review) {
+      return next(new ErrorHandler("Review not found", 404));
+    }
+
+    const isAuthenticateUser = review.user.toString() === user._id.toString();
+
+    if (!isAuthenticateUser) {
+      return next(new ErrorHandler("Not Authorised User", 404));
+    }
+
+    await review.deleteOne();
+
+    const product = await Product.findById(review.product);
+
+    if (!product) {
+      return next(new ErrorHandler("Product not found", 404));
+    }
+
+    const { ratings, numOfReviews } = await findAvarageRatings(product._id);
+
+    product.ratings = ratings;
+    product.numOfReviews = numOfReviews;
+
+    await product.save();
+
+    await invalidateCache({
+      product: true,
+      productId: String(product._id),
+      admin: true,
+      review: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Review Deleted",
+    });
+  },
+);

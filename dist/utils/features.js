@@ -1,4 +1,5 @@
 import { Product } from "../models/product.model.js";
+import { Reviews } from "../models/review.model.js";
 import { v2 as cloudinary } from "cloudinary";
 export const reduceStock = async (orderItems) => {
     for (let i = 0; i < orderItems.length; i++) {
@@ -101,4 +102,16 @@ export const deleteFromCloudinary = async (public_id) => {
         });
     });
     await Promise.all(promises);
+};
+export const findAvarageRatings = async (productId) => {
+    let totalRating = 0;
+    const reviews = await Reviews.find({ product: productId });
+    reviews.forEach((review) => {
+        totalRating += review.rating;
+    });
+    const avarageRating = Math.floor(totalRating / reviews.length) || 0;
+    return {
+        numOfReviews: reviews.length,
+        ratings: avarageRating,
+    };
 };

@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import { Product } from "../models/product.model.js";
+import { Reviews } from "../models/review.model.js";
 import { OrderItemType } from "../types/types.js";
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 
@@ -149,4 +151,22 @@ export const deleteFromCloudinary = async (public_id: string[]) => {
     });
   });
   await Promise.all(promises);
+};
+
+export const findAvarageRatings = async (
+  productId: mongoose.Types.ObjectId,
+) => {
+  let totalRating = 0;
+
+  const reviews = await Reviews.find({ product: productId });
+  reviews.forEach((review) => {
+    totalRating += review.rating;
+  });
+
+  const avarageRating = Math.floor(totalRating / reviews.length) || 0;
+
+  return {
+    numOfReviews: reviews.length,
+    ratings: avarageRating,
+  };
 };

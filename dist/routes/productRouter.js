@@ -1,6 +1,6 @@
 import express from "express";
 import { adminOnly } from "../middlewares/Auth.js";
-import { newProduct, getLatestProducts, getAllCategory, deleteProduct, getAdminProducts, getSingleProduct, updateProduct, getAllProducts, } from "../controllers/productController.js";
+import { newProduct, getLatestProducts, getAllCategory, deleteProduct, getAdminProducts, getSingleProduct, updateProduct, getAllProducts, newReview, deleteReview, allReviewsOfProduct, } from "../controllers/productController.js";
 import { mutliUpload } from "../middlewares/Multer.js";
 const router = express.Router();
 // Create new product - /api/v1/product/new
@@ -19,4 +19,8 @@ router.get("/:id", getSingleProduct);
 router.put("/:id", adminOnly, mutliUpload, updateProduct);
 // Delete Product - /api/v1/product/:id
 router.delete("/:id", adminOnly, deleteProduct);
+//* for rating and reviews route
+router.get("/reviews/:id", allReviewsOfProduct);
+router.post("/review/new/:id", newReview);
+router.delete("/review/:id", deleteReview);
 export default router;

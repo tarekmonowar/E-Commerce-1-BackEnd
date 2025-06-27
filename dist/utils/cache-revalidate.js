@@ -1,8 +1,8 @@
-import { myNodeCache } from "../app.js";
+import { redis } from "../app.js";
 export const invalidateCache = async ({ product, order, admin, review, userId, orderId, productId, }) => {
-    // if (review) {
-    //   await redis.del([`reviews-${productId}`]);
-    // }
+    if (review) {
+        await redis.del([`reviews-${productId}`]);
+    }
     if (product) {
         const productKeys = [
             "latest-products",
@@ -13,7 +13,7 @@ export const invalidateCache = async ({ product, order, admin, review, userId, o
             productKeys.push(`product-${productId}`);
         if (typeof productId === "object")
             productId.forEach((i) => productKeys.push(`product-${i}`));
-        myNodeCache.del(productKeys);
+        await redis.del(productKeys);
     }
     if (order) {
         const ordersKeys = [
@@ -21,10 +21,10 @@ export const invalidateCache = async ({ product, order, admin, review, userId, o
             `my-orders-${userId}`,
             `order-${orderId}`,
         ];
-        myNodeCache.del(ordersKeys);
+        await redis.del(ordersKeys);
     }
     if (admin) {
-        myNodeCache.del([
+        await redis.del([
             "admin-stats",
             "admin-pie-charts",
             "admin-bar-charts",

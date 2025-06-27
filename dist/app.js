@@ -1,25 +1,27 @@
-import express from "express";
-const app = express();
-import connectDB from "./utils/db.js";
-import NodeCache from "node-cache";
-import morgan from "morgan";
-import cors from "cors";
 import { v2 as cloudinary } from "cloudinary";
-// Connect to MongoDB
+import cors from "cors";
+import express from "express";
+import morgan from "morgan";
+import connectDB from "./utils/db.js";
+const app = express();
+// Route Imports
+import { errorMiddleware } from "./middlewares/Error.js";
+import orderRoute from "./routes/orderRouter.js";
+import paymentRoute from "./routes/paymentsRouter.js";
+import productRoute from "./routes/productRouter.js";
+import statsRoute from "./routes/statisticsRouter.js";
+import userRoute from "./routes/userRouter.js";
+import { connectRedis } from "./utils/redis.js";
+export const redisTTL = Number(process.env.REDIS_TTL) || 60 * 60 * 4;
+const redisUrl = process.env.REDIS_URL || "";
+// Connect to MongoDB and redis
 connectDB();
-export const myNodeCache = new NodeCache();
+export const redis = connectRedis(redisUrl);
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-// Route Imports
-import { errorMiddleware } from "./middlewares/Error.js";
-import userRoute from "./routes/userRouter.js";
-import productRoute from "./routes/productRouter.js";
-import orderRoute from "./routes/orderRouter.js";
-import paymentRoute from "./routes/paymentsRouter.js";
-import statsRoute from "./routes/statisticsRouter.js";
 // Middleware for parsing JSON and URL-encoded data  body-parser lage na
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
