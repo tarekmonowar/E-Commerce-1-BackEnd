@@ -13,6 +13,14 @@ export const invalidateCache = async ({ product, order, admin, review, userId, o
             productKeys.push(`product-${productId}`);
         if (typeof productId === "object")
             productId.forEach((i) => productKeys.push(`product-${i}`));
+        // Delete all keys that match the filter pattern because after crued search key cannot delete this is extra 8pack
+        let cursor = "0";
+        do {
+            const [nextCursor, matchedKeys] = await redis.scan(cursor, "MATCH", "products:filter:*", "COUNT", 100);
+            cursor = nextCursor;
+            productKeys.push(...matchedKeys);
+        } while (cursor !== "0");
+        //extra end
         await redis.del(productKeys);
     }
     if (order) {

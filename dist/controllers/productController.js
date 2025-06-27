@@ -76,7 +76,7 @@ export const getSingleProduct = TryCatch(async (req, res, next) => {
         if (!product) {
             return next(new ErrorHandler("Product not found", 404));
         }
-        await redis.set(key, JSON.stringify(product));
+        await redis.setex(key, redisTTL, JSON.stringify(product));
     }
     res.status(200).json({
         success: true,
@@ -200,10 +200,10 @@ export const getAllProducts = TryCatch(async (req, res, next) => {
     const pageNumber = Number(page) || 1;
     const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
     const skip = (pageNumber - 1) * limit;
-    const key = `products-${search}-${sort}-${category}-${price}-${page}`;
+    // const key = `products:filter:${search}-${sort}-${category}-${price}-${page}`;
     //*or better to encode
-    //  const encode = (val?: string | number) => encodeURIComponent(val ?? "all");
-    // const key = `products-${encode(search)}-${encode(sort)}-${encode(category)}-${encode(price)}-${pageNumber}`;
+    const encode = (val) => encodeURIComponent(val ?? "all");
+    const key = `products:filter:${encode(search)}-${encode(sort)}-${encode(category)}-${encode(price)}-${pageNumber}`;
     let products;
     let totalPage;
     const cached = await redis.get(key);
