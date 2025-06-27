@@ -1,11 +1,7 @@
 import { Redis } from "ioredis";
 
 export const connectRedis = (redisUrl: string) => {
-  const redis = new Redis(redisUrl, {
-    tls: redisUrl.startsWith("rediss://") ? {} : undefined,
-    maxRetriesPerRequest: null,
-    enableOfflineQueue: true,
-  });
+  const redis = new Redis(redisUrl);
 
   redis.on("connect", () => {
     console.log("✅ Connected to Redis");
