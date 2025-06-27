@@ -16,7 +16,10 @@ export const getLatestProducts = TryCatch(async (req, res, next) => {
         products = JSON.parse(cached);
     }
     else {
-        products = await Product.find({}).sort({ createdAt: -1 }).limit(5).lean();
+        products = await Product.find({})
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
         await redis.set("latest-products", JSON.stringify(products));
     }
     res.status(200).json({
